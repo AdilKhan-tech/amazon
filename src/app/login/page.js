@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL = "/api";
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -12,7 +13,56 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (GOOGLE_CLIENT_ID && typeof window !== "undefined" && !document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const handleGoogleLogin = () => {
+    if (!window.google || !GOOGLE_CLIENT_ID) {
+      setError("Google Sign-In is not configured yet.");
+      return;
+    }
+    setGoogleLoading(true);
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCallback,
+    });
+    window.google.accounts.id.prompt();
+  };
+
+  const handleGoogleCallback = async (response) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Google login failed");
+        setGoogleLoading(false);
+        return;
+      }
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.user.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/account");
+      }
+    } catch (err) {
+      setError("Google login failed. Try again.");
+      setGoogleLoading(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -148,9 +198,12 @@ export default function LoginPage() {
             </div>
 
             <div className="auth-social-btns">
-              <button className="auth-social-btn google">
-                <i className="bi bi-google"></i>
-                <span>Google</span>
+              <button className="auth-social-btn google" onClick={handleGoogleLogin} disabled={googleLoading}>
+                {googleLoading ? (
+                  <span className="auth-spinner"></span>
+                ) : (
+                  <><i className="bi bi-google"></i><span>Google</span></>
+                )}
               </button>
               <button className="auth-social-btn apple">
                 <i className="bi bi-apple"></i>

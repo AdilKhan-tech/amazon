@@ -6,6 +6,7 @@ const upload = require("../middlewares/upload");
 
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
+router.post("/google", AuthController.googleLogin);
 router.get("/profile", authMiddleware, AuthController.getProfile);
 router.put("/profile", authMiddleware, upload.single("image"), AuthController.updateProfile);
 router.put("/change-password", authMiddleware, AuthController.changePassword);

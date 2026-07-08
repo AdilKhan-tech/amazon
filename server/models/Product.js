@@ -1,74 +1,21 @@
-const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
+const { DataTypes } = require("sequelize");
 
-const Product = sequelize.define("Product",{
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-
-  name_en: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-  },
-
-  name_ar: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-  },
-
-  description: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-  },
-  
-  gender_id: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-
-  regular_price: {
-    type: DataTypes.FLOAT,
-    allowNull: false,
-  },
-
-  sale_price: {
-    type: DataTypes.FLOAT,
-    allowNull: true,
-  },
-
-  tax_status: {
-    type: DataTypes.ENUM("Taxable", "Shipping Only", "None"),
-    defaultValue: "Taxable"
-  },
-
-  tax_class: {
-    type: DataTypes.ENUM("Standard", "Popular"),
-    defaultValue: "Standard",
-  },
-
-  image_url: {
-    type: DataTypes.STRING(255),
-    allowNull: true,
-  },
-
-  created_at:{
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-
-  updated_at:{
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
-  },
-  {
-    tableName: "products",
-    timestamps: false,
-  }
-);
+const Product = sequelize.define("Product", {
+  id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+  name: { type: DataTypes.STRING, allowNull: false },
+  slug: { type: DataTypes.STRING, allowNull: false, unique: true },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  price: { type: DataTypes.FLOAT, allowNull: false },
+  originalPrice: { type: DataTypes.FLOAT, allowNull: true },
+  images: { type: DataTypes.JSON, allowNull: true },
+  categoryId: { type: DataTypes.INTEGER, allowNull: false, references: { model: "Categories", key: "id" } },
+  brand: { type: DataTypes.STRING, allowNull: true },
+  stock: { type: DataTypes.INTEGER, defaultValue: 0 },
+  rating: { type: DataTypes.FLOAT, defaultValue: 0 },
+  reviewCount: { type: DataTypes.INTEGER, defaultValue: 0 },
+  featured: { type: DataTypes.BOOLEAN, defaultValue: false },
+  specs: { type: DataTypes.JSON, allowNull: true },
+}, { timestamps: true });
 
 module.exports = Product;

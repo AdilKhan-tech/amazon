@@ -1,7 +1,10 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
 const { User, Cart } = require("../models");
 const { JWT_SECRET } = require("../middlewares/authMiddleware");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Register
 exports.register = async (req, res, next) => {
@@ -42,6 +45,38 @@ exports.login = async (req, res, next) => {
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, image: user.image } });
   } catch (error) {
+    next(error);
+  }
+};
+
+// Google Login
+exports.googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ error: "Google credential is required." });
+    }
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture, sub: googleId } = payload;
+
+    let user = await User.findOne({ where: { email } });
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        password: await bcrypt.hash(googleId, 10),
+        image: picture,
+      });
+      await Cart.create({ userId: user.id });
+    }
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, image: user.image } });
+  } catch (error) {
+    console.error("Google login error:", error.message);
     next(error);
   }
 };

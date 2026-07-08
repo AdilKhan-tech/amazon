@@ -193,11 +193,17 @@ export default function AdminProducts() {
                     <td><span className="product-id">#{product.id}</span></td>
                     <td>
                       <div className="product-image-cell">
-                        <img
-                          src={getImageUrl(Array.isArray(product.images) ? product.images[0] : product.image)}
-                          alt={product.name}
-                          className="product-image"
-                        />
+                        {getImageUrl(Array.isArray(product.images) ? product.images[0] : product.image) ? (
+                          <img
+                            src={getImageUrl(Array.isArray(product.images) ? product.images[0] : product.image)}
+                            alt={product.name}
+                            className="product-image"
+                          />
+                        ) : (
+                          <div className="product-image-placeholder">
+                            <i className="bi bi-image"></i>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td>

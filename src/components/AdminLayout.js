@@ -31,6 +31,7 @@ export default function AdminLayout({ children }) {
     { href: "/admin/coupons", icon: "bi-ticket-perforated-fill", label: "Coupons" },
     { href: "/admin/customers", icon: "bi-people-fill", label: "Customers" },
     { href: "/admin/analytics", icon: "bi-graph-up-arrow", label: "Analytics" },
+    { href: "/admin/settings", icon: "bi-gear-fill", label: "Settings" },
   ];
 
   const isActive = (href) => {

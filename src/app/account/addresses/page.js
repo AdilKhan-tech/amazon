@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AccountLayout from "@/components/AccountLayout";
 
+const API_URL = "/api";
+
 export default function AddressesPage() {
+  const router = useRouter();
   const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
+    label: "",
     fullName: "",
     phone: "",
     address: "",
@@ -18,25 +24,28 @@ export default function AddressesPage() {
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem("addresses");
-    if (stored) {
-      setAddresses(JSON.parse(stored));
-    } else {
-      // Default addresses
-      const defaultAddresses = [
-        { id: 1, name: "Home", fullName: "John Doe", phone: "+1 234 567 890", address: "123 Main Street, Apt 4B", city: "New York", state: "NY", zip: "10001", isDefault: true },
-        { id: 2, name: "Office", fullName: "John Doe", phone: "+1 234 567 891", address: "456 Business Ave, Suite 100", city: "New York", state: "NY", zip: "10018", isDefault: false },
-      ];
-      setAddresses(defaultAddresses);
-      localStorage.setItem("addresses", JSON.stringify(defaultAddresses));
-    }
-  }, []);
+    const token = localStorage.getItem("token");
+    if (!token) { router.push("/login"); return; }
+    fetchAddresses(token);
+  }, [router]);
 
-  useEffect(() => {
-    if (addresses.length > 0) {
-      localStorage.setItem("addresses", JSON.stringify(addresses));
+  const fetchAddresses = async (token) => {
+    try {
+      const res = await fetch(`${API_URL}/addresses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAddresses(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch addresses:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [addresses]);
+  };
+
+  const getToken = () => localStorage.getItem("token");
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -46,33 +55,66 @@ export default function AddressesPage() {
     }));
   };
 
-  const handleAddAddress = () => {
-    if (!formData.name || !formData.fullName || !formData.address) return;
-    
-    const newAddress = {
-      id: Date.now(),
-      ...formData
-    };
-    
-    // If this is set as default, unset others
-    const updatedAddresses = formData.isDefault
-      ? addresses.map(a => ({ ...a, isDefault: false }))
-      : addresses;
-    
-    setAddresses([...updatedAddresses, newAddress]);
-    setFormData({ name: "", fullName: "", phone: "", address: "", city: "", state: "", zip: "", isDefault: false });
-    setShowForm(false);
+  const handleAddAddress = async () => {
+    if (!formData.fullName || !formData.address) return;
+    setSaving(true);
+    const token = getToken();
+    try {
+      const res = await fetch(`${API_URL}/addresses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          label: formData.label || "Home",
+          fullName: formData.fullName,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+          isDefault: formData.isDefault,
+        }),
+      });
+      if (res.ok) {
+        await fetchAddresses(token);
+        setFormData({ label: "", fullName: "", phone: "", address: "", city: "", state: "", zip: "", isDefault: false });
+        setShowForm(false);
+      }
+    } catch (err) {
+      console.error("Failed to add address:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const removeAddress = (id) => {
-    setAddresses(addresses.filter(a => a.id !== id));
+  const removeAddress = async (id) => {
+    if (!confirm("Delete this address?")) return;
+    const token = getToken();
+    try {
+      const res = await fetch(`${API_URL}/addresses/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setAddresses(addresses.filter(a => a.id !== id));
+      }
+    } catch (err) {
+      console.error("Failed to delete address:", err);
+    }
   };
 
-  const setAsDefault = (id) => {
-    setAddresses(addresses.map(a => ({
-      ...a,
-      isDefault: a.id === id
-    })));
+  const setAsDefault = async (id) => {
+    const token = getToken();
+    try {
+      const res = await fetch(`${API_URL}/addresses/${id}/default`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        await fetchAddresses(token);
+      }
+    } catch (err) {
+      console.error("Failed to set default:", err);
+    }
   };
 
   return (
@@ -114,7 +156,7 @@ export default function AddressesPage() {
                 </div>
               </div>
               <div className="stat-card-bottom">
-                <h3 className="stat-card-value">{addresses.find(a => a.isDefault)?.name || "-"}</h3>
+                <h3 className="stat-card-value">{addresses.find(a => a.isDefault)?.label || "-"}</h3>
                 <p className="stat-card-label">Default Address</p>
               </div>
             </div>
@@ -134,7 +176,7 @@ export default function AddressesPage() {
               <div className="address-form-grid">
                 <div className="address-form-group">
                   <label>Address Label</label>
-                  <input type="text" className="address-input" placeholder="e.g. Home, Office" name="name" value={formData.name} onChange={handleInputChange} />
+                  <input type="text" className="address-input" placeholder="e.g. Home, Office" name="label" value={formData.label} onChange={handleInputChange} />
                 </div>
                 <div className="address-form-group">
                   <label>Full Name</label>
@@ -168,7 +210,9 @@ export default function AddressesPage() {
                 </div>
               </div>
               <div className="address-form-actions">
-                <button className="premium-btn" onClick={handleAddAddress}>Save Address</button>
+                <button className="premium-btn" onClick={handleAddAddress} disabled={saving}>
+                  {saving ? <><span className="auth-spinner"></span> Saving...</> : "Save Address"}
+                </button>
                 <button className="cancel-btn" onClick={() => setShowForm(false)}>Cancel</button>
               </div>
             </div>
@@ -176,38 +220,48 @@ export default function AddressesPage() {
         )}
 
         {/* Addresses Grid */}
-        <div className="addresses-grid">
-          {addresses.map((addr) => (
-            <div key={addr.id} className={`address-card ${addr.isDefault ? "default" : ""}`}>
-              <div className="address-card-header">
-                <div className="address-label">
-                  <i className="bi bi-geo-alt-fill"></i>
-                  <span>{addr.name}</span>
+        {loading ? (
+          <div className="premium-loading">
+            <div className="loading-spinner"></div>
+            <span>Loading addresses...</span>
+          </div>
+        ) : addresses.length === 0 ? (
+          <div className="empty-addresses">
+            <i className="bi bi-geo-alt"></i>
+            <h4>No addresses yet</h4>
+            <p>Add your first shipping address to get started.</p>
+          </div>
+        ) : (
+          <div className="addresses-grid">
+            {addresses.map((addr) => (
+              <div key={addr.id} className={`address-card ${addr.isDefault ? "default" : ""}`}>
+                <div className="address-card-header">
+                  <div className="address-label">
+                    <i className="bi bi-geo-alt-fill"></i>
+                    <span>{addr.label}</span>
+                  </div>
+                  {addr.isDefault && <span className="default-badge">Default</span>}
                 </div>
-                {addr.isDefault && <span className="default-badge">Default</span>}
-              </div>
-              <div className="address-card-body">
-                <p className="address-name">{addr.fullName}</p>
-                <p className="address-street">{addr.address}</p>
-                <p className="address-city">{addr.city}, {addr.state} {addr.zip}</p>
-                <p className="address-phone"><i className="bi bi-telephone"></i> {addr.phone}</p>
-              </div>
-              <div className="address-card-actions">
-                <button className="address-action-btn edit">
-                  <i className="bi bi-pencil"></i> Edit
-                </button>
-                {!addr.isDefault && (
-                  <button className="address-action-btn default" onClick={() => setAsDefault(addr.id)}>
-                    <i className="bi bi-star"></i> Set Default
+                <div className="address-card-body">
+                  <p className="address-name">{addr.fullName}</p>
+                  <p className="address-street">{addr.address}</p>
+                  <p className="address-city">{addr.city}, {addr.state} {addr.zip}</p>
+                  <p className="address-phone"><i className="bi bi-telephone"></i> {addr.phone}</p>
+                </div>
+                <div className="address-card-actions">
+                  {!addr.isDefault && (
+                    <button className="address-action-btn default" onClick={() => setAsDefault(addr.id)}>
+                      <i className="bi bi-star"></i> Set Default
+                    </button>
+                  )}
+                  <button className="address-action-btn delete" onClick={() => removeAddress(addr.id)}>
+                    <i className="bi bi-trash"></i> Delete
                   </button>
-                )}
-                <button className="address-action-btn delete" onClick={() => removeAddress(addr.id)}>
-                  <i className="bi bi-trash"></i> Delete
-                </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </AccountLayout>
     </div>
   );

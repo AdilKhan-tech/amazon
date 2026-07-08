@@ -8,9 +8,11 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState("card");
-  const [selectedAddress, setSelectedAddress] = useState(1);
+  const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedShipping, setSelectedShipping] = useState(0);
   const [checkoutProduct, setCheckoutProduct] = useState(null);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [shippingAddress, setShippingAddress] = useState({
     fullName: "",
     phone: "",
@@ -36,12 +38,32 @@ export default function CheckoutPage() {
         qty: parseInt(qty) || 1,
       });
     }
+
+    // Fetch addresses from database
+    fetchAddresses();
   }, [searchParams]);
 
-  const savedAddresses = [
-    { id: 1, name: "Home", address: "123 Main Street, Apt 4B", city: "New York", state: "NY", zip: "10001", country: "US" },
-    { id: 2, name: "Office", address: "456 Business Ave, Suite 100", city: "New York", state: "NY", zip: "10018", country: "US" },
-  ];
+  const fetchAddresses = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) { setLoadingAddresses(false); return; }
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/addresses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedAddresses(data);
+        // Auto-select default address
+        const defaultAddr = data.find(a => a.isDefault);
+        if (defaultAddr) setSelectedAddress(defaultAddr.id);
+        else if (data.length > 0) setSelectedAddress(data[0].id);
+      }
+    } catch (err) {
+      console.error("Failed to fetch addresses:", err);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
 
   const shippingOptions = [
     { name: "Standard Delivery", time: "5-7 business days", price: "FREE", icon: "bi-truck" },
@@ -62,10 +84,15 @@ export default function CheckoutPage() {
   const handlePlaceOrder = () => {
     const orderId = `ORD-${Date.now()}`;
     const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+    // Use selected saved address or the form address
+    const dbAddr = savedAddresses.find(a => a.id === selectedAddress);
+    const finalAddress = dbAddr
+      ? { fullName: dbAddr.fullName, street: dbAddr.address, city: dbAddr.city, state: dbAddr.state, zip: dbAddr.zip, phone: dbAddr.phone }
+      : shippingAddress;
     const orderData = {
       orderId,
       cartItems,
-      shippingAddress,
+      shippingAddress: finalAddress,
       selectedShipping,
       paymentMethod,
       subtotal,
@@ -130,26 +157,40 @@ export default function CheckoutPage() {
                 </div>
                 <div className="card-body-modern">
                   {/* Saved Addresses */}
+                  {loadingAddresses ? (
+                    <div className="address-loading">
+                      <div className="checkout-spinner"></div>
+                      <span>Loading your addresses...</span>
+                    </div>
+                  ) : savedAddresses.length > 0 ? (
                   <div className="address-grid">
                     {savedAddresses.map((addr) => (
                       <div
                         key={addr.id}
-                        className={`address-card ${selectedAddress === addr.id ? "selected" : ""}`}
+                        className={`address-card ${selectedAddress === addr.id ? "selected" : ""} ${addr.isDefault ? "default-badge" : ""}`}
                         onClick={() => setSelectedAddress(addr.id)}
                       >
                         <div className="address-header">
-                          <strong>{addr.name}</strong>
+                          <strong>{addr.label || addr.fullName || "Address"}</strong>
+                          {addr.isDefault && <span className="default-tag">Default</span>}
                           <div className={`radio-indicator ${selectedAddress === addr.id ? "active" : ""}`}>
                             {selectedAddress === addr.id && <i className="bi bi-check-circle-fill"></i>}
                           </div>
                         </div>
                         <p className="address-text">
+                          {addr.fullName && <>{addr.fullName}<br /></>}
                           {addr.address}<br />
                           {addr.city}, {addr.state} {addr.zip}
                         </p>
                       </div>
                     ))}
                   </div>
+                  ) : (
+                    <div className="no-addresses">
+                      <i className="bi bi-geo-alt"></i>
+                      <p>No saved addresses yet. Add one below!</p>
+                    </div>
+                  )}
 
                   {/* Add New Address */}
                   <div className="new-address-section">
@@ -189,7 +230,34 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="card-actions">
-                    <button className="btn-continue" onClick={() => setStep(2)}>
+                    <button className="btn-continue" onClick={async () => {
+                      // If user filled new address, save it to DB first
+                      if (shippingAddress.fullName && shippingAddress.street) {
+                        const token = localStorage.getItem("token");
+                        if (token) {
+                          try {
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/addresses`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({
+                                label: "Home",
+                                fullName: shippingAddress.fullName,
+                                phone: shippingAddress.phone,
+                                address: shippingAddress.street,
+                                city: shippingAddress.city,
+                                state: shippingAddress.state,
+                                zip: shippingAddress.zip,
+                                country: "US",
+                              }),
+                            });
+                            if (res.ok) {
+                              await fetchAddresses();
+                            }
+                          } catch (err) { console.error(err); }
+                        }
+                      }
+                      setStep(2);
+                    }}>
                       Continue to Shipping <i className="bi bi-arrow-right"></i>
                     </button>
                   </div>
@@ -326,8 +394,13 @@ export default function CheckoutPage() {
                         <span>Shipping Address</span>
                       </div>
                       <div className="review-value">
-                        <strong>{shippingAddress.fullName}</strong>
-                        <p>{shippingAddress.street}<br />{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zip}</p>
+                        {(() => {
+                          const dbAddr = savedAddresses.find(a => a.id === selectedAddress);
+                          if (dbAddr) {
+                            return <><strong>{dbAddr.fullName}</strong><p>{dbAddr.address}<br />{dbAddr.city}, {dbAddr.state} {dbAddr.zip}</p></>;
+                          }
+                          return <><strong>{shippingAddress.fullName}</strong><p>{shippingAddress.street}<br />{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zip}</p></>;
+                        })()}
                       </div>
                     </div>
                     <div className="review-item">

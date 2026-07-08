@@ -41,6 +41,7 @@ export default function AdminCustomersPage() {
             id: u.id,
             name: u.name || "N/A",
             email: u.email,
+            image: u.image || null,
             orders: userOrders.length,
             spent: totalSpent,
             joined: joinDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
@@ -211,7 +212,11 @@ export default function AdminCustomersPage() {
                   <tr key={c.id}>
                     <td>
                       <div className="customer-cell">
-                        <div className="customer-avatar">{c.name.charAt(0)}</div>
+                        {c.image ? (
+                          <img className="customer-avatar-img" src={c.image.startsWith("http") ? c.image : `${API_URL.replace('/api', ':5000/api')}${c.image}`} alt={c.name} />
+                        ) : (
+                          <div className="customer-avatar">{c.name.charAt(0)}</div>
+                        )}
                         <span className="customer-name">{c.name}</span>
                       </div>
                     </td>

@@ -67,7 +67,7 @@ export const getAuthHeaders = () => {
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 
 export const getImageUrl = (url) => {
-  if (!url) return '';
+  if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   return `${BACKEND_URL}${url}`;
 };

@@ -13,6 +13,7 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 const couponRoutes = require("./routes/couponRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
@@ -58,7 +60,7 @@ const startServer = async () => {
   try {
     await sequelize.authenticate();
     console.log("Database connected successfully.");
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log("Database synced.");
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

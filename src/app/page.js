@@ -83,20 +83,28 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Content overlapping hero */}
+      {/* Content */}
       <div className="amz-home-content">
         {/* Category Cards Grid */}
-        <div className="amz-category-grid">
-          {categories.map((cat) => (
-            <Link key={cat.slug} href={`/search?category=${cat.name}`} className="amz-cat-card">
-              <h2 className="amz-cat-title">{cat.name}</h2>
-              <div className="amz-cat-img-wrap">
-                <img src={cat.image} alt={cat.name} loading="lazy" />
-              </div>
-              <span className="amz-cat-link">Shop now</span>
-            </Link>
-          ))}
-        </div>
+        <section className="amz-section">
+          <div className="amz-section-header">
+            <div className="amz-section-title-wrap">
+              <i className="bi bi-grid-fill amz-deal-icon"></i>
+              <h2 className="amz-section-title">Shop by Category</h2>
+            </div>
+          </div>
+          <div className="amz-category-grid">
+            {categories.map((cat) => (
+              <Link key={cat.slug} href={`/search?category=${cat.name}`} className="amz-cat-card">
+                <div className="amz-cat-img-wrap">
+                  <img src={cat.image} alt={cat.name} loading="lazy" />
+                </div>
+                <h2 className="amz-cat-title">{cat.name}</h2>
+                <span className="amz-cat-link">Shop now <i className="bi bi-arrow-right"></i></span>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* Deals Section */}
         {deals.length > 0 && (

@@ -71,19 +71,25 @@ export default function AccountPage() {
       <AccountLayout>
         {/* Welcome Header */}
         <div className="premium-welcome">
-          <div className="welcome-inner">
-            <div>
-              <h2>Welcome back, {user.name.split(" ")[0]}!</h2>
+          <div className="welcome-content">
+            <div className="welcome-text">
+              <div className="welcome-greeting">
+                <i className="bi bi-hand-thumbs-up-fill"></i>
+              </div>
+              <h1>Welcome back, {user.name}!</h1>
               <p>Here's what's happening with your account today</p>
             </div>
-            <div className="welcome-date">
+            <div className="welcome-date-badge">
               <i className="bi bi-calendar3"></i>
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              <div className="welcome-date-inner">
+                <span className="welcome-date-day">{new Date().toLocaleDateString("en-US", { weekday: "long" })}</span>
+                <span className="welcome-date-full">{new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+              </div>
             </div>
           </div>
           <div className="welcome-decoration">
-            <div className="welcome-circle welcome-circle-1"></div>
-            <div className="welcome-circle welcome-circle-2"></div>
+            <div className="decoration-circle c1"></div>
+            <div className="decoration-circle c2"></div>
           </div>
         </div>
 

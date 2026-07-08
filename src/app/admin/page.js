@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import SalesActivityChart from "@/components/SalesActivityChart";
+import OrderActivityChart from "@/components/OrderActivityChart";
+import CustomerActivityChart from "@/components/CustomerActivityChart";
 
 const API_URL = "/api";
 
@@ -11,6 +14,8 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({ orders: 0, revenue: 0, products: 0, users: 0 });
   const [recentOrders, setRecentOrders] = useState([]);
   const [monthlySales, setMonthlySales] = useState([]);
+  const [orderActivity, setOrderActivity] = useState([]);
+  const [customerActivity, setCustomerActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const router = useRouter();
@@ -56,15 +61,61 @@ export default function AdminDashboard() {
           }
         });
         setMonthlySales(months);
+        setOrderActivity(months.map(m => ({ label: m.label, orders: m.orders })));
 
         fetch(`${API_URL}/auth/users`, { headers: { Authorization: `Bearer ${token}` } })
           .then((r) => r.json())
           .then((usersData) => {
-            const usersCount = Array.isArray(usersData) ? usersData.length : (usersData.users?.length || 1);
+            const usersList = Array.isArray(usersData) ? usersData : (usersData.users || []);
+            const usersCount = usersList.length || 1;
             setStats({ orders: storedOrders.length, revenue: totalRevenue, products: productsCount, users: usersCount });
+
+            // Build customer activity from user registration dates
+            const customerMonths = [];
+            for (let i = 5; i >= 0; i--) {
+              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+              customerMonths.push({
+                label: d.toLocaleDateString("en-US", { month: "short" }),
+                customers: 0,
+                cumulative: 0,
+              });
+            }
+            usersList.forEach((u) => {
+              const regDate = new Date(u.createdAt || u.created_at || u.registeredAt);
+              if (isNaN(regDate.getTime())) return;
+              const monthDiff = (now.getFullYear() - regDate.getFullYear()) * 12 + (now.getMonth() - regDate.getMonth());
+              if (monthDiff >= 0 && monthDiff < 6) {
+                const idx = 5 - monthDiff;
+                customerMonths[idx].customers += 1;
+              }
+            });
+            // If no user dates, distribute evenly
+            if (customerMonths.every(m => m.customers === 0) && usersCount > 0) {
+              const perMonth = Math.ceil(usersCount / 6);
+              customerMonths.forEach((m, i) => {
+                m.customers = i < 5 ? perMonth : usersCount - perMonth * 5;
+              });
+            }
+            let cumulative = 0;
+            customerMonths.forEach(m => {
+              cumulative += m.customers;
+              m.cumulative = cumulative;
+            });
+            setCustomerActivity(customerMonths);
           })
           .catch(() => {
             setStats({ orders: storedOrders.length, revenue: totalRevenue, products: productsCount, users: 1 });
+            // Fallback customer data
+            const fallback = [];
+            for (let i = 5; i >= 0; i--) {
+              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+              fallback.push({
+                label: d.toLocaleDateString("en-US", { month: "short" }),
+                customers: 0,
+                cumulative: 0,
+              });
+            }
+            setCustomerActivity(fallback);
           });
         setRecentOrders(storedOrders.slice(0, 5));
       })
@@ -93,23 +144,29 @@ export default function AdminDashboard() {
   ];
 
   return (
+    <AdminLayout>
     <div className="premium-dashboard">
       {/* Welcome Banner */}
       <div className="premium-welcome">
         <div className="welcome-content">
           <div className="welcome-text">
+            <div className="welcome-greeting">
+              <i className="bi bi-hand-thumbs-up-fill"></i>
+            </div>
             <h1>Welcome back, {user?.name || "MR. Khosti"}!</h1>
             <p>Here&apos;s what&apos;s happening with your store today</p>
           </div>
           <div className="welcome-date-badge">
             <i className="bi bi-calendar3"></i>
-            <span>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
+            <div className="welcome-date-inner">
+              <span className="welcome-date-day">{new Date().toLocaleDateString("en-US", { weekday: "long" })}</span>
+              <span className="welcome-date-full">{new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+            </div>
           </div>
         </div>
         <div className="welcome-decoration">
           <div className="decoration-circle c1"></div>
           <div className="decoration-circle c2"></div>
-          <div className="decoration-circle c3"></div>
         </div>
       </div>
 
@@ -229,37 +286,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Sales Chart */}
-      <div className="premium-card chart-section">
-        <div className="premium-card-header">
-          <h3>Sales Activity</h3>
-          <span className="chart-total-badge">${(monthlySales.reduce((s, m) => s + m.revenue, 0)).toFixed(2)}</span>
-        </div>
-        <div className="premium-card-body">
-          {monthlySales.length === 0 || monthlySales.every(m => m.revenue === 0) ? (
-            <div className="empty-state-card">
-              <i className="bi bi-bar-chart"></i>
-              <p>No sales data yet</p>
-            </div>
-          ) : (
-            <div className="premium-chart">
-              {monthlySales.map((m, i) => {
-                const maxRevenue = Math.max(...monthlySales.map(s => s.revenue), 1);
-                const height = Math.max((m.revenue / maxRevenue) * 100, 8);
-                return (
-                  <div key={i} className="chart-bar-group">
-                    <span className="chart-bar-amount">${m.revenue.toFixed(0)}</span>
-                    <div className="chart-bar-track">
-                      <div className="chart-bar-fill" style={{ height: `${height}%` }}></div>
-                    </div>
-                    <span className="chart-bar-month">{m.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* Charts Grid */}
+      <div className="charts-grid">
+        <SalesActivityChart data={monthlySales} />
+        <OrderActivityChart data={orderActivity} />
+        <CustomerActivityChart data={customerActivity} />
       </div>
     </div>
+    </AdminLayout>
   );
 }
