@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: amazon-store-api
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DB_HOST
+        fromDatabase:
+          name: amazon-store-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: amazon-store-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: amazon-store-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: amazon-store-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: amazon-store-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGINS
+        value: https://your-frontend-domain.vercel.app
+
+databases:
+  - name: amazon-store-db
+    region: oregon
+    plan: free
+    databaseName: amazon_store
+    user: amazon_user
