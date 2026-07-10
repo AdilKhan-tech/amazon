@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
 import { categories } from "@/data/mockData";
 
 const API_URL = "/api";
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const dealParam = searchParams.get("deal");
   const categoryParam = searchParams.get("category");
@@ -310,5 +310,13 @@ export default function SearchPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="container py-5"><p>Loading...</p></div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

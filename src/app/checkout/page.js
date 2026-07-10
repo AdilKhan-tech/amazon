@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState("card");
@@ -488,5 +488,13 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="checkout-page"><div className="container"><p>Loading checkout...</p></div></div>}>
+      <CheckoutContent />
+    </Suspense>
   );
 }
